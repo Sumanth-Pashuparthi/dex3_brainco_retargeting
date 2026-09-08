@@ -1,0 +1,27 @@
+Fix torch.any() on a list of per-step tensors in Arena's annotate_demos.py.
+
+EpisodeData.add appends one tensor per step, so subtask_term_signals is a Python list, not a
+stacked tensor. torch.any() raises TypeError on it and every --auto annotation run dies after
+replaying the first episode. Applied by run_annotate.sh against the Arena checkout.
+
+--- a/isaaclab_arena/scripts/imitation_learning/annotate_demos.py
++++ b/isaaclab_arena/scripts/imitation_learning/annotate_demos.py
+@@ -345,11 +345,17 @@
+     if not is_episode_annotated_successfully:
+         print("\tThe final task was not completed.")
+     else:
++        # EpisodeData.add stores one tensor per step, so the flags arrive as a list.
++        def _as_tensor(flags):
++            if isinstance(flags, (list, tuple)):
++                return torch.stack([torch.as_tensor(f).reshape(-1) for f in flags])
++            return torch.as_tensor(flags)
++
+         # check if all the subtask term signals are annotated
+         annotated_episode = env.recorder_manager.get_episode(0)
+         subtask_term_signal_dict = annotated_episode.data["obs"]["datagen_info"]["subtask_term_signals"]
+         for signal_name, signal_flags in subtask_term_signal_dict.items():
+-            if not torch.any(signal_flags):
++            if not torch.any(_as_tensor(signal_flags)):
+                 is_episode_annotated_successfully = False
+                 print(f'\tDid not detect completion for the subtask "{signal_name}".')
+     return is_episode_annotated_successfully

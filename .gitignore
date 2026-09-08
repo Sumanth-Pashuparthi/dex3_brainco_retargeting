@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated assets, datasets and evaluation output live outside the repo
+*.usd
+*.usda
+*.hdf5
+*.hdf5.bak.*
+*.parquet
+eval/
+datasets/
+lerobot/
+
+# dataset/README.md and dataset/fetch.sh are tracked; the downloaded (or symlinked) tree is not
+dataset/mimic_apple_pick_and_place/
+dataset/mimic_apple_pick_and_place
+mimic_apple_pick_and_place/
