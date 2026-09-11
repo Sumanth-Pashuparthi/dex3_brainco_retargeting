@@ -54,9 +54,20 @@ DESTINATION=clay_plates_hot3d_robolab
 
 # Which arm performs the pick. prepare_source.sh reports which one the rollouts used.
 MIMIC_ARM=${MIMIC_ARM:-left}
-# Apple spawn jitter during generation, in metres. The stock env has none, so without this every
-# generated demo would repeat the same scene and add nothing over the source.
-APPLE_XY_RANGE_M=${APPLE_XY_RANGE_M:-0.02}
+# Apple spawn jitter during generation, in metres (half-range, uniform in x and y). The stock env has
+# none, so without this every generated demo would repeat the same scene and add nothing over the
+# source. The first 200-demo round used 0.02, which is a ~15 px shift in the head camera and looks
+# identical episode to episode; 0.05 gives a 10 x 10 cm box. Orientation is deliberately not
+# randomised: Mimic transforms the grasp with the full object pose, so a yawed apple would rotate the
+# approach direction around it.
+APPLE_XY_RANGE_M=${APPLE_XY_RANGE_M:-0.05}
+
+# prepare_source_from_generated.sh: how many generated demos become sources for the next round, and
+# the time-stretch applied to them. Mimic executes one source step per env step, so generated demos
+# move exactly as fast as their sources; the first round's 5 s episodes came from a GR00T rollout plus
+# a scripted place squeezed under the task's 6 s cap (wrist ~0.6 m/s). 2.0 halves every velocity.
+NUM_SOURCES=${NUM_SOURCES:-24}
+TIME_SCALE=${TIME_SCALE:-2.0}
 # g1_wbc_agile_pink_brainco = Revo2 hands on the Pink IK interface; g1_wbc_agile_pink = stock Dex3.
 EMBODIMENT=${EMBODIMENT:-g1_wbc_agile_pink_brainco}
 

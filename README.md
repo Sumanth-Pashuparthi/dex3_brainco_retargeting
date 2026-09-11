@@ -1,20 +1,36 @@
 # Transferring a dexterous manipulation policy from Unitree Dex3-1 to BrainCo Revo2 Touch hands
 
-A frozen GR00T N1.7 policy, trained on a Unitree G1 29-DoF with **7-DoF Dex3-1 hands**, driving the
-same robot with **6-DoF BrainCo Revo2 Touch hands** — without retraining, without touching the
-policy, and without changing its action space.
+A GR00T N1.7 policy, trained on a Unitree G1 29-DoF with **7-DoF Dex3-1 hands**, made to drive the
+same robot with **6-DoF BrainCo Revo2 Touch hands** — first by retargeting alone, then by
+fine-tuning on demonstrations the retargeted policy generated for itself.
 
-|  | Dex3-1 (source) | Revo2 Touch (target) |
-|---|---|---|
-| Actuated DoF per hand | 7 | 6 |
-| Fingers | 3 | 5 |
-| Robot DoF | 43 | 41 |
-| Task success | **0.65** (13/20) | **0.06** (6/100, all frame-verified) |
+|  | Dex3-1 (source) | Revo2 Touch (target) | Revo2, fine-tuned |
+|---|---|---|---|
+| Actuated DoF per hand | 7 | 6 | 6 |
+| Fingers | 3 | 5 | 5 |
+| Robot DoF | 43 | 41 | 41 |
+| Task success | **0.65** (13/20) | **0.06** (6/100, all frame-verified) | **0.50** (70/140) |
+| Apple spawn at evaluation | fixed, as shipped | fixed, as shipped | **±5 cm, random** |
 
-The task, scene, checkpoint, success criterion, episode length and evaluation script are identical
-between the two columns. The only difference is one command-line argument. The drop is the expected
-and useful result: this configuration is a measurement of the embodiment gap, which is what tells
-you where fine-tuning has to be aimed.
+The task, scene, success criterion, episode length and evaluation script are identical across all
+three columns; only the hands, the weights, and — for the third column — the spawn randomisation
+change.
+
+The middle column is a measurement of the embodiment gap. Retargeting the hand geometry as well as
+a closed-form map can gets to 0.06, and the residual is behavioural rather than geometric — which
+is why the third column exists. 1,668 demonstrations harvested from the retargeted policy itself,
+multiplied by Isaac Lab Mimic, recover it to 0.50: an eight-fold gain (p = 5 × 10⁻¹³) that is not
+separable from the 0.65 source baseline at this sample size (p = 0.21).
+
+The third column is scored on **random** spawns while the baselines are scored on the single fixed
+pose the task ships with, so it is the harder test of the three and the gain is a lower bound. The
+fine-tuned policy's score at that fixed pose is deliberately not reported anywhere in this
+repository: it is the pose all 1,668 of its training demonstrations were generated around, so it
+measures memorisation of one apple position rather than a transferred skill.
+
+The interesting part of this repository is where the third column stops working: 0.00 at ±10 cm, and
+a second 979-episode round aimed at exactly that weakness did not measurably fix it.
+[`5_gr00t_finetune/`](5_gr00t_finetune/) is that investigation.
 
 [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) is one of the six verified Revo2
 successes (episode 57 of the 100-episode evaluation, head camera, 6 s): the frozen Dex3 policy,
@@ -24,42 +40,57 @@ are in [`3_g1_brainco_inference/media/`](3_g1_brainco_inference/media/).
 
 ## Repository layout
 
-Four steps, in the order they were done. Each has its own README with commands and expected output.
+Five steps, in the order they were done. Each has its own README with commands and expected output.
 
 | Step | Contents |
 |---|---|
 | [`1_baseline/`](1_baseline/) | Run the existing apple pick-and-place unmodified. Establishes the reference number. |
 | [`2_retargeting/`](2_retargeting/) | Build the Revo2 robot asset, and the layer that maps Dex3 commands onto it. |
 | [`3_g1_brainco_inference/`](3_g1_brainco_inference/) | Run the policy on the retargeted robot; record successes and instrument the physics comparison. |
-| [`4_mimic_datagen/`](4_mimic_datagen/) | Harvest the policy's successes and multiply them with Isaac Lab Mimic into a fine-tuning dataset. |
+| [`4_mimic_datagen/`](4_mimic_datagen/) | Harvest the policy's successes and multiply them with Isaac Lab Mimic into fine-tuning datasets. |
+| [`5_gr00t_finetune/`](5_gr00t_finetune/) | Fine-tune GR00T N1.7 on them, across three dataset rounds. Training, evaluation, the figures, and why the second round did not help. |
 | [`dataset/`](dataset/) | Pointer to the HF dataset ([pashuparthis/mimic_apple_pick_and_place](https://huggingface.co/datasets/pashuparthis/mimic_apple_pick_and_place)); `./fetch.sh` downloads it (or use the local symlink). |
-| [`docs/assignment1_report.pdf`](docs/assignment1_report.pdf) | The write-up (5 pages): platform choice, the correspondence, asset changes, results and sim-to-real notes. |
+| [`docs/assignment1_report.pdf`](docs/assignment1_report.pdf) | The write-up: platform choice, the correspondence, asset changes, the fine-tuning results and sim-to-real notes. |
 | [`assignment2_report.pdf`](assignment2_report.pdf) | Assignment 2 (2 pages): the process for teaching a new right-to-left handover skill on the same G1 + Revo2 stack. |
 | [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) | Headline clip: the retargeted policy completing the task on the Revo2 hand (same as `3_g1_brainco_inference/media/success_ep057.mp4`). |
 
-The generated dataset is not committed (`.gitignore` covers `*.hdf5`, `*.parquet`, `lerobot/`). The
-raw Mimic output is published on Hugging Face as the six per-worker HDF5 shards, exactly as
-`generate_dataset.py` wrote them:
+The generated data is not committed (`.gitignore` covers `*.hdf5`, `*.parquet`, `lerobot/`). All
+three dataset rounds are published on Hugging Face in GR00T-LeRobot v2.1 form — ready to hand
+straight to `launch_finetune.py`, with no conversion step:
 
 **[pashuparthis/mimic_apple_pick_and_place](https://huggingface.co/datasets/pashuparthis/mimic_apple_pick_and_place)**
-— `gen_w0.hdf5` … `gen_w5.hdf5`, 200 successful episodes (33–34 per shard), 13.4 GB, Arena
-`record_demos.py` schema: 23-D Pink actions, states, observations and the 640×480 head camera at 50 Hz.
+
+| Config | Episodes | Frames | Size | What it is |
+|---|---|---|---|---|
+| `r1r2` | 1,668 | 821,610 | 1.8 GB | Rounds 1–2, apple spawn jittered uniformly. |
+| `r3` | 979 | 483,294 | 1.0 GB | Round 3, aimed at the spawn cells the r1r2 policy failed in. |
+| `r2r3` | 2,647 | 1,304,904 | 2.7 GB | The union; what the final checkpoint trained on. |
+
+`r2r3` is exactly `r1r2 + r3`, so fetch one unless you want the ablation between them:
 
 ```bash
-hf download pashuparthis/mimic_apple_pick_and_place --repo-type dataset --local-dir ./mimic_apple_pick_and_place
-cd 4_mimic_datagen && ./run_merge.sh && ./run_convert.sh   # -> one HDF5, then GR00T-LeRobot v2
+hf download pashuparthis/mimic_apple_pick_and_place --repo-type dataset \
+  --include 'r2r3/*' --local-dir ./apple_data
 ```
 
-Steps 1 to 3 are complete and their numbers are measured. Step 4 is complete through data
-generation: 9 source demos annotated, 200 demos generated with Mimic (61% generation success),
-converted and validated with GR00T's loader. The fine-tuning run itself is not done.
+Or rebuild from scratch with `4_mimic_datagen/` (`run_generate.sh`, `run_generate_targeted.sh`,
+`run_merge.sh`, `run_convert.sh`).
+
+All five steps are complete and their numbers are measured. Nothing in this repository is a plan:
+every rate quoted here came out of `isaaclab_arena/evaluation/policy_runner.py` on this machine,
+and [`5_gr00t_finetune/results/results.json`](5_gr00t_finetune/results/results.json) holds them all
+with the protocol recorded next to each one.
 
 ## The write-up
 
-[docs/assignment1_report.pdf](docs/assignment1_report.pdf) is the full account in five pages: why
-this platform and task, what the two hands differ by, how the correspondence was derived, what
-changed in the asset, the results with the ablation and the pelvis investigation, the
-data-generation pipeline, and what deployment on hardware would need.
+[docs/assignment1_report.pdf](docs/assignment1_report.pdf) is the full account: why this platform
+and task, what the two hands differ by, how the correspondence was derived, what changed in the
+asset, the retargeting results with the ablation and the pelvis investigation, the data-generation
+pipeline, then the fine-tuning — the three dataset rounds, what each bought, the generalisation
+limit, and the failure-mode analysis. It is generated from
+[`docs/assignment1_report.md`](docs/assignment1_report.md) by `docs/make_report.py`, which pulls
+every figure and every number from `5_gr00t_finetune/results/`, so the prose and the measurements
+cannot drift apart.
 
 [assignment2_report.pdf](assignment2_report.pdf) is the two-page process write-up for Assignment 2:
 teaching the same stack a new skill on the Revo2 hands (pick with the right hand, hand over to the
@@ -103,11 +134,25 @@ six install steps does.
 
 # 4. build demonstration data for fine-tuning
 (cd 4_mimic_datagen && ./setup.sh && ./prepare_source.sh)
+
+# 5. fine-tune on it, then evaluate: expect success_rate ~0.50 at +/-5 cm spawn jitter
+(cd 5_gr00t_finetune && VARIANT=r2r3 ./run_train.sh && ./status.sh)
+(cd 5_gr00t_finetune && ./run_policy_server.sh 10000)   # leave running, then:
+(cd 5_gr00t_finetune && ./run_eval.sh 20)
+```
+
+The analysis and every figure regenerate with no GPU, from recorded results:
+
+```bash
+(cd 5_gr00t_finetune && python3 analyze.py)
+(cd docs && python3 make_report.py)
 ```
 
 Each step folder is self-contained: its own `env.sh`, container runner and media, with no references
 outside itself. Installation lives in steps 1 and 2, which share the same `WORK_DIR` defaults, so
-whichever you install first makes the other's setup a no-op. Everything lands under `~/g1_baseline`.
+whichever you install first makes the other's setup a no-op. Everything lands under `~/g1_baseline`;
+override `WORK_DIR` to move it, or `DATA_DIR` / `CKPT_ROOT` / `EVAL_DIR` to put the bulk artefacts
+on a different disk. No script in this repository contains an absolute path to one machine.
 
 ## What the retargeting layer actually does
 
@@ -150,17 +195,79 @@ pick-and-place from 1/100 to 6/100.
 Six other hypotheses were tested and rejected along the way, including two that seemed much more
 likely; they are recorded in [docs/assignment1_report.pdf](docs/assignment1_report.pdf) (section "The pelvis").
 
+## What fine-tuning fixed, and what it did not
+
+![fine-tuning result](5_gr00t_finetune/figures/fig1_headline.png)
+
+Because the residual failures were behavioural rather than geometric, the fix had to be
+demonstrations — and none of them were teleoperated. The 6% of episodes that already succeeded were
+harvested from the retargeted policy itself and multiplied by Mimic. Fine-tuning on 1,668 of them
+took the task from **0.06 to 0.50 under randomised spawns**, which confirmed the diagnosis from
+step 3.
+
+It also produced a specialist. The same checkpoint scores **0.00 at ±10 cm** of spawn jitter: it
+learned the task but not the workspace, which is what cloning 1,668 replays of 22
+approach paths should be expected to do.
+
+To find out *where* it failed, each evaluation episode's apple spawn position was recovered from the
+recorded video and plotted against the outcome:
+
+![spawn vs outcome](5_gr00t_finetune/figures/fig9_spawn_outcome.png)
+
+The failures are positional. Inside the generation box success runs 0.78 in the half nearer the plate
+against 0.41 in the far half (p = 0.0023) and decays monotonically with distance from it. Binning
+those episodes onto a 3×3 grid, alongside all 1,668 training demonstrations and the model's own
+offline action error on 400 held-out episodes:
+
+![spawn maps](5_gr00t_finetune/figures/fig10_spawn_maps.png)
+
+A third round of 979 episodes was then aimed at the failing cells in proportion to their failure
+rate. It brought the ±5 cm rate to 0.55 against 0.50 — a two-proportion p of 1.0, i.e. **no
+measurable gain**, with success flat across every checkpoint of both runs.
+
+The third panel is why, and it is the thing to read before generating a second dataset: **coverage
+was already uniform.** Every cell held 165–199 demonstrations while success over those same cells
+ranged 0.17 to 1.00 — a six-fold variation on essentially equal data. The weak cells were never short
+of demonstrations, so round 3 treated a kinematic problem as a data-density problem. What varies
+across that box is reach and wrist orientation, and more replays of the same 22 approach trajectories
+add scene diversity rather than approach diversity.
+
+The middle panel is a second negative result worth keeping: the offline action error the model is
+trained to minimise is spatially flat (1.4× against success's 6×) and correlates with actual success
+at −0.24 over eight cells. It cannot be used as a cheap stand-in for rollouts.
+
+The remaining failures share one shape: the hand closes, the apple rolls out during the lift, and
+the policy carries on to the plate and mimes a place with an empty hand until the clock runs out. It
+never tries again. Two inference-time mechanisms were built to fix that — ACT-style temporal
+ensembling and Real-Time Chunking — and neither produced a single retry, because neither could: one
+averages overlapping plans and the other is explicitly designed to make each new plan continue the
+last. The explanation turned out to be in the data. All **2,647 training episodes close the hand
+exactly once**; the demonstrations are success-filtered by construction, so a fumble-and-recover
+episode could never have entered the set. Recovery is not a behaviour this policy can be asked for
+at inference time — it has to be demonstrated.
+
+Full analysis, all eight figures and the reproduction commands are in
+[`5_gr00t_finetune/README.md`](5_gr00t_finetune/README.md).
+
 ## Reading the numbers
 
 The task's success term is "apple within the plate region", which also counts the apple being
 *pushed* there. In one 100-episode run only 1 of 3 counted successes was a real grasp, so every
 number in this repository was checked frame by frame at 4 fps.
 
-Two more caveats worth knowing before quoting anything:
+Three more caveats worth knowing before quoting anything:
 
-- **Rates below 100 episodes are noise.** One configuration scored 1/10 and then 0/20 on repeat.
-- **The apple spawn is deterministic** (`APPLE_SPAWN_XY_RANGE_M = 0.0`). The task measures
-  repeatability under physics and policy stochasticity, not spatial generalisation.
+- **Small-n rates are noise.** One configuration scored 1/10 and then 0/20 on repeat. The
+  fine-tuning sweep pools repeats to reach n = 40–140 and quotes Wilson intervals; at n = 10 the
+  interval is roughly ±0.3, wide enough to hide any effect in this repository.
+- **Spawn jitter is not comparable across values.** Steps 1 and 3 measure the stock deterministic
+  spawn (`APPLE_SPAWN_XY_RANGE_M = 0.0`), which tests repeatability under physics and policy
+  stochasticity. Step 5's checkpoint sweep uses ±5 cm, which tests spatial generalisation as well.
+  Only the 0 cm rows compare to the 0.65 and 0.06 above; `results.json` records the jitter beside
+  every rate for that reason.
+- **The fine-tuned numbers all start from NVIDIA's task-tuned checkpoint**, so none of them
+  isolates what our demonstrations contributed from what the base model already knew. The run that
+  would settle it (`VARIANT=r2r3-base`) is staged and has not been run.
 
 ## Components and licences
 

@@ -1,0 +1,264 @@
+{
+  "_comment": [
+    "Recorded measurements for the GR00T N1.7 fine-tuning stage. Every number in the stage",
+    "README, the figures and the report is derived from this file, so the analysis reproduces",
+    "without a GPU: `python3 analyze.py`.",
+    "",
+    "Evaluation protocol is identical across every row unless stated: task",
+    "galileo_g1_static_pick_and_place (apple -> plate), embodiment g1_wbc_agile_joint_brainco,",
+    "50 Hz, 14 s episode timeout, success = the environment's own termination term. Where the",
+    "spawn jitter differs it is recorded per row, because it is not comparable across values.",
+    "",
+    "`n` is pooled across repeat runs of the same configuration; `runs` lists the parts."
+  ],
+
+  "protocol": {
+    "task": "galileo_g1_static_pick_and_place --object apple_01_objaverse_robolab --destination clay_plates_hot3d_robolab",
+    "embodiment": "g1_wbc_agile_joint_brainco",
+    "fps": 50,
+    "episode_length_s": 14.0,
+    "success_term": "environment termination_manager 'success' (apple within plate region)",
+    "success_caveat": "the term also counts the apple being pushed into the region, so it is an upper bound on true pick-and-place"
+  },
+
+  "datasets": [
+    {
+      "id": "r1r2",
+      "label": "Rounds 1-2\n(uniform jitter)",
+      "episodes": 1668,
+      "frames": 821610,
+      "path_hint": "datasets/g1_apple_mimic/g1_apple_mimic_generated/lerobot",
+      "why": "First scale-up. Mimic replays the harvested successes over an apple spawn jittered uniformly in a narrow box around the nominal pose.",
+      "regrasp_episodes": 0
+    },
+    {
+      "id": "r3",
+      "label": "Round 3\n(targeted hard cells)",
+      "episodes": 979,
+      "frames": 483294,
+      "path_hint": "datasets/g1_apple_mimic/g1_apple_mimic_targeted/lerobot",
+      "why": "Added only where the r1r2 policy failed. The spawn box was gridded, per-cell success measured, and generation aimed at the weak cells instead of sampling uniformly again.",
+      "regrasp_episodes": 0
+    },
+    {
+      "id": "r2r3",
+      "label": "Merged r2+r3",
+      "episodes": 2647,
+      "frames": 1304904,
+      "path_hint": "datasets/g1_apple_mimic/g1_apple_mimic_r2r3/lerobot",
+      "why": "Union of the two, used for the second fine-tune. 2647 = 1668 + 979 and 1304904 = 821610 + 483294, so nothing was dropped in the merge.",
+      "regrasp_episodes": 0
+    }
+  ],
+
+  "spawn_analysis": {
+    "_comment": [
+      "Apple spawn position vs success. This is the analysis that decided round 3, and the one that",
+      "in hindsight also explains why round 3 could not work.",
+      "",
+      "Raw data is in spawn_eval.csv (99 evaluation episodes of ft_r1r2 checkpoint-5000 at +/-5 cm,",
+      "with the spawn offset and outcome of each) and spawn_demos.csv (the spawn offset of all 1668",
+      "r1r2 training demonstrations). analyze.py bins both onto the 3x3 grid below, so the per-cell",
+      "numbers here are derived rather than asserted -- they are recorded for reference only.",
+      "",
+      "Axis convention: x is reach away from the robot, y is away from the plate, both cm from the",
+      "nominal spawn. Evaluation offsets are centred on the run's own mean, which cancels the",
+      "constant bias in the pixel-to-world homography used to recover them; demonstration offsets",
+      "are taken from the nominal pose directly. Homography noise is about +/-1 cm, so cell",
+      "boundaries are approximate.",
+      "",
+      "THE THREE QUANTITIES, and the point of comparing them:",
+      "  sim success        varies 6x across the box (0.17 to 1.00) -- the thing we care about",
+      "  offline action MSE varies 1.4x (1.27 to 1.77 e-3) with no spatial structure at all",
+      "  demos per cell     varies 1.2x (165 to 199) -- essentially uniform coverage",
+      "",
+      "So the weak cells were neither under-represented in the data nor flagged by the model's own",
+      "imitation error. Round 3 targeted the success map, which was the right map to target, but",
+      "the premise that adding demonstrations would fix those cells was wrong: they already had the",
+      "same number of demonstrations as the cells scoring 1.00."
+    ],
+    "evaluated_model": "ft_r1r2 checkpoint-5000",
+    "eval_episodes": 99,
+    "eval_successes": 49,
+    "grid": 3,
+    "cell_edges_cm": [-5.0, -1.667, 1.667, 5.0],
+    "training_demos_total": 1668,
+
+    "offline_action_mse": {
+      "_comment": [
+        "Mean action MSE of the same checkpoint replayed offline against 400 held-out dataset",
+        "episodes at their exact recorded spawns -- no homography noise, and cheap compared to a",
+        "rollout. The hope was that it would reproduce the success map for a fraction of the cost.",
+        "It does not: spread is 1.4x against success's 6x, correlation with distance from centre is",
+        "-0.06 and with y is +0.03, and cell-wise correlation with sim success is -0.24 over 8",
+        "cells, which is noise at that n. The offline metric is spatially blind and must not be used",
+        "for targeting.",
+        "",
+        "Unlike every other number in this file these cannot be recomputed from the CSVs -- they",
+        "need the model and a GPU -- so they are transcribed from that run, in units of 1e-3.",
+        "Rows are the x bands in cell_edges_cm order, columns the y bands."
+      ],
+      "units": "1e-3",
+      "grid": [[1.27, 1.77, 1.61],
+               [1.50, 1.49, 1.36],
+               [1.43, 1.52, null]],
+      "spread_ratio": 1.4,
+      "corr_with_distance_from_centre": -0.06,
+      "corr_with_y": 0.03,
+      "cellwise_corr_with_sim_success": -0.24
+    },
+
+    "checkpoint_offline_mse": {
+      "_comment": [
+        "The same disagreement along the training axis rather than the spatial one: offline MSE",
+        "improves monotonically with training while sim success does not move. Another reason this",
+        "work is evaluated by rollout only."
+      ],
+      "2000": 0.00214,
+      "3000": 0.00197,
+      "4000": 0.00169,
+      "5000": 0.00149
+    },
+
+    "round3_allocation": {
+      "_comment": [
+        "plan_targeted.py: weight = Beta(1,1) posterior mean failure rate per cell, zeroed for",
+        "cells already above 0.70 success or with fewer than 3 eval episodes, then normalised to a",
+        "1000-demo budget. 979 were actually generated. Keyed by [x_band, y_band] index."
+      ],
+      "budget": 1000,
+      "generated": 979,
+      "by_cell": {"0,0": 80, "0,1": 111, "0,2": 155, "1,0": 0, "1,1": 0,
+                  "1,2": 181, "2,0": 113, "2,1": 188, "2,2": 172}
+    }
+  },
+
+  "regrasp_audit": {
+    "_comment": "Counts hand-close events per episode on action dim 23 (left_hand, the only actuated hand in this task). The command is binary: 0.0 open, -0.87 rad closed. A retry would appear as >= 2 close events.",
+    "dataset": "r2r3",
+    "episodes_scanned": 2647,
+    "close_events_histogram": {"1": 2647},
+    "episodes_with_regrasp": 0
+  },
+
+  "trainings": [
+    {
+      "id": "ft_r1r2",
+      "label": "Fine-tune on r1r2",
+      "base_model": "GN1x-Tuned-Arena-G1-Static-PickNPlace",
+      "dataset": "r1r2",
+      "global_batch": 192,
+      "max_steps": 5000,
+      "learning_rate": 1e-4,
+      "tuned": "visual + projector + diffusion head (LLM frozen)",
+      "gpus": 3,
+      "samples_seen": 960000,
+      "epochs": 1.17,
+      "loss_curve": "loss_ft_r1r2.json"
+    },
+    {
+      "id": "ft_r2r3",
+      "label": "Fine-tune on r2+r3",
+      "base_model": "GN1x-Tuned-Arena-G1-Static-PickNPlace",
+      "dataset": "r2r3",
+      "global_batch": 240,
+      "max_steps": 10000,
+      "learning_rate": 1e-4,
+      "tuned": "visual + projector + diffusion head (LLM frozen)",
+      "gpus": 3,
+      "samples_seen": 2400000,
+      "epochs": 1.84,
+      "epochs_caveat": "the run was restarted twice and earlier segments used batch 216; 1.84 uses the final batch of 240",
+      "loss_curve": "loss_ft_r2r3.json"
+    }
+  ],
+
+  "evals": [
+    {
+      "id": "frozen_dex3",
+      "stage": "Assignment 1",
+      "label": "Dex3-1 hands, frozen policy",
+      "model": "GN1x base (no fine-tuning)",
+      "successes": 13, "n": 20, "jitter_m": 0.0,
+      "inference": "stock",
+      "note": "the source embodiment the checkpoint was trained on; the reference number"
+    },
+    {
+      "id": "frozen_revo2",
+      "stage": "Assignment 1",
+      "label": "Revo2 hands, frozen policy\n(retargeting only)",
+      "model": "GN1x base (no fine-tuning)",
+      "successes": 6, "n": 100, "jitter_m": 0.0,
+      "inference": "stock",
+      "note": "all six frame-verified as genuine grasps; the gap fine-tuning had to close"
+    },
+
+    {
+      "id": "ft_r1r2_c5000_j0",
+      "stage": "Fine-tune r1r2",
+      "label": "Revo2, fine-tuned on r1r2",
+      "model": "ft_r1r2 checkpoint-5000",
+      "successes": 19, "n": 20, "jitter_m": 0.0,
+      "inference": "stock",
+      "reportable": false,
+      "note": [
+        "NOT REPORTED, and the reason is the point. This is the fine-tuned checkpoint evaluated at",
+        "the single fixed spawn pose the stock task ships with -- which is the pose every one of its",
+        "1,668 training demonstrations was generated around. Asking a policy that has seen one apple",
+        "position hundreds of times for that exact position again tests it on its own training point,",
+        "so 19/20 measures memorisation of one pose rather than the skill the fine-tune was meant to",
+        "buy. Kept for provenance, deliberately excluded from every figure and every claim. The",
+        "reportable fine-tuned number is ft_r1r2_c5000, at +/-5 cm.",
+        "",
+        "The two frozen rows sit at the same fixed pose, but nothing was fitted to it in their case,",
+        "so for them it is simply the task as shipped."
+      ]
+    },
+
+    {"id": "ft_r1r2_c2000", "stage": "Fine-tune r1r2", "label": "step 2000", "model": "ft_r1r2 checkpoint-2000", "successes": 15, "n": 40, "jitter_m": 0.05, "inference": "stock", "training_step": 2000},
+    {"id": "ft_r1r2_c3000", "stage": "Fine-tune r1r2", "label": "step 3000", "model": "ft_r1r2 checkpoint-3000", "successes": 22, "n": 40, "jitter_m": 0.05, "inference": "stock", "training_step": 3000},
+    {"id": "ft_r1r2_c4000", "stage": "Fine-tune r1r2", "label": "step 4000", "model": "ft_r1r2 checkpoint-4000", "successes": 17, "n": 40, "jitter_m": 0.05, "inference": "stock", "training_step": 4000},
+    {"id": "ft_r1r2_c5000", "stage": "Fine-tune r1r2", "label": "step 5000", "model": "ft_r1r2 checkpoint-5000", "successes": 70, "n": 140, "jitter_m": 0.05, "inference": "stock", "training_step": 5000, "runs": ["20/40", "50/100"]},
+
+    {"id": "ft_r2r3_c8000", "stage": "Fine-tune r2+r3", "label": "step 8000", "model": "ft_r2r3 checkpoint-8000", "successes": 22, "n": 40, "jitter_m": 0.05, "inference": "stock", "training_step": 8000, "runs": ["6/10", "16/30"]},
+    {"id": "ft_r2r3_c10000", "stage": "Fine-tune r2+r3", "label": "step 10000", "model": "ft_r2r3 checkpoint-10000", "successes": 25, "n": 50, "jitter_m": 0.05, "inference": "stock", "training_step": 10000, "runs": ["4/10", "21/40"]},
+
+    {"id": "ft_r1r2_c5000_j10", "stage": "Generalisation", "label": "fine-tuned r1r2, +/-10 cm", "model": "ft_r1r2 checkpoint-5000", "successes": 0, "n": 10, "jitter_m": 0.10, "inference": "stock", "note": "collapses outside the training spawn box; this is what motivated round 3"}
+  ],
+
+  "inference_ablation": {
+    "_comment": [
+      "Does the failure mode live in how the chunk is executed, rather than in the weights?",
+      "The policy predicts 40 actions (0.8 s at 50 Hz). Stock executes all 40 before looking at the",
+      "world again. Three alternatives were tried, all on the same checkpoint and protocol.",
+      "None produced a retry after a failed grasp, which is the behaviour being chased."
+    ],
+    "variants": [
+      {"label": "Stock\n(execute all 40)", "model": "ft_r2r3 checkpoint-8000", "successes": 22, "n": 40, "replan_s": 0.8, "retry_observed": false},
+      {"label": "Temporal ensemble\n(replan 0.2 s, blend)", "model": "ft_r2r3 checkpoint-8000", "successes": 25, "n": 40, "replan_s": 0.2, "retry_observed": false},
+      {"label": "RTC\n(replan 0.1 s, guided)", "model": "ft_r2r3 checkpoint-8000", "successes": 10, "n": 16, "replan_s": 0.1, "retry_observed": false, "partial": true},
+      {"label": "RTC\n(replan 0.2 s, guided)", "model": "ft_r2r3 checkpoint-8000", "successes": 6, "n": 13, "replan_s": 0.2, "retry_observed": false, "partial": true},
+      {"label": "RTC\n(replan 0.4 s, guided)", "model": "ft_r2r3 checkpoint-8000", "successes": 9, "n": 15, "replan_s": 0.4, "retry_observed": false, "partial": true}
+    ],
+    "hard_swap_early_test": {
+      "_comment": "The first attempt, run earlier on the r1r2 checkpoint: shorten the executed chunk and replace it outright.",
+      "model": "ft_r1r2 checkpoint-5000",
+      "stock": {"successes": 70, "n": 140, "replan_s": 0.8},
+      "chunk10": {"successes": 16, "n": 40, "replan_s": 0.2},
+      "two_proportion_p": 0.264
+    }
+  },
+
+  "failure_analysis": {
+    "_comment": "Per-episode outcome for the two pooled stock runs on the final checkpoint. Frames at 50 Hz; 700 frames is the 14 s timeout.",
+    "model": "ft_r2r3 checkpoint-10000",
+    "episodes": [
+      {"success": false, "frames": 700}, {"success": false, "frames": 700},
+      {"success": true,  "frames": 425}, {"success": true,  "frames": 301},
+      {"success": false, "frames": 700}, {"success": true,  "frames": 254},
+      {"success": false, "frames": 700}, {"success": true,  "frames": 412},
+      {"success": false, "frames": 700}, {"success": false, "frames": 700}
+    ],
+    "object_moved_rate": 0.6
+  }
+}

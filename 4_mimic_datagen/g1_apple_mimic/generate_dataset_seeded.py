@@ -7,6 +7,11 @@
 #   --max_num_failures N   overrides ``datagen_config.max_num_failures``.
 #   --status_file PATH     live JSON heartbeat {success, attempts, failures, target, elapsed_s},
 #                          read from isaaclab_mimic.datagen.generation's module counters.
+#   --rerenders_on_reset N sets ``env_cfg.num_rerenders_on_reset``. Isaac Lab's own use of it (looping
+#                          ``sim.render()``) no longer reaches the RTX renderer in this version, so on
+#                          its own it does nothing for the stale step-0 camera frame; the real fix is
+#                          ``G1StaticAppleMimicEnv._refresh_camera_obs`` (mimic_env.py), which uses this
+#                          value as the number of renderer pumps after each reset (min 2).
 #
 # Everything else (env setup, recorders, async env_loop) is unchanged from upstream.
 
@@ -26,6 +31,9 @@ parser.add_argument("--datagen_seed", type=int, default=None, help="Override dat
 parser.add_argument("--max_num_failures", type=int, default=None, help="Override datagen_config.max_num_failures.")
 parser.add_argument("--status_file", type=str, default=None, help="Write a live JSON status here.")
 parser.add_argument("--status_interval_s", type=float, default=20.0)
+parser.add_argument("--rerenders_on_reset", type=int, default=3,
+                    help="Render steps after each reset so the step-0 camera frame shows the reset scene, not the "
+                         "previous trial's end state. 0 reproduces Isaac Lab's default (stale first frame).")
 add_example_environments_cli_args(parser)
 args_cli = parser.parse_args()
 
@@ -81,6 +89,9 @@ def setup_env_config(output_dir: str, output_file_name: str):
     env_cfg.observations.policy.concatenate_terms = False
 
     if args_cli.enable_cameras:
+        # Without this the first recorded frame of every episode is the previous trial's final render.
+        env_cfg.num_rerenders_on_reset = args_cli.rerenders_on_reset
+        print(f"[generate] num_rerenders_on_reset={env_cfg.num_rerenders_on_reset}")
         env_cfg.recorders = ArenaEnvRecorderManagerCfg()
     else:
         env_cfg.recorders = ActionStateRecorderManagerCfg()

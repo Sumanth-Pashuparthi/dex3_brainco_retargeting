@@ -14,7 +14,48 @@ class G1StaticAppleMimicEnv(G1MimicEnv):
 
     Every term of the ``subtask_terms`` observation group (added by
     :class:`g1_apple_mimic.task.G1StaticApplePickPlaceTask`) is exposed as a signal.
+
+    Also fixes the stale first camera frame of every generated episode (see :meth:`_refresh_camera_obs`).
     """
+
+    # -- stale-frame fix -------------------------------------------------------------------------------
+
+    def reset(self, *args, **kwargs):
+        obs, extras = super().reset(*args, **kwargs)
+        self._refresh_camera_obs()
+        return self.obs_buf, extras
+
+    def reset_to(self, *args, **kwargs):
+        out = super().reset_to(*args, **kwargs)
+        self._refresh_camera_obs()
+        return (self.obs_buf, out[1]) if isinstance(out, tuple) else out
+
+    def _refresh_camera_obs(self) -> None:
+        """Re-render after a reset so ``obs_buf["camera_obs"]`` shows the reset scene, not the previous episode.
+
+        In this Isaac Lab, ``sim.render()`` no longer drives RTX; the camera pumps the renderer itself in
+        ``ensure_isaac_rtx_render_update()``, which is de-duplicated per ``(sim, physics_step_count)``. A
+        reset does not advance the physics step count, so the camera read that ``reset()`` performs is a
+        no-op pump and returns the annotator frame from the *last step of the previous episode* (or the
+        pre-reset scene for the first one). ``num_rerenders_on_reset`` cannot help: it loops ``sim.render()``.
+        The recorder copies that ``obs_buf["camera_obs"]`` as step 0 of the episode, so without this every
+        generated demo starts with an image of the wrong scene.
+
+        Here: defeat the dedup key, pump the renderer a few times so RTX has converged on the new state, mark
+        the sensors outdated and recompute the ``camera_obs`` group in place.
+        """
+        if not getattr(self, "has_rtx_sensors", False) or "camera_obs" not in self.observation_manager.active_terms:
+            return
+        import isaaclab_physx.renderers.isaac_rtx_renderer_utils as rtx
+
+        for _ in range(max(2, int(getattr(self.cfg, "num_rerenders_on_reset", 0) or 0))):
+            rtx._last_render_update_key = (0, -1)
+            rtx.ensure_isaac_rtx_render_update()
+        for sensor in self.scene.sensors.values():
+            sensor.reset()
+        self.obs_buf["camera_obs"] = self.observation_manager.compute_group("camera_obs")
+
+    # -- Mimic API --------------------------------------------------------------------------------------
 
     def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:
         """Eef pose in the frame the action term expects.

@@ -19,9 +19,11 @@ LOG="$LOG_DIR/annotate.log"
 echo "annotate: $SOURCE_HDF5 -> $ANNOTATED_HDF5 (gpu $GPU, device ${ANNOTATE_DEVICE:-cpu})"
 echo "log: $LOG"
 
+# run_patched.py: Arena's asset library queries the Lightwheel API at import and the SDK's 10 s
+# timeout is too short for that service; the wrapper raises it and retries, then runs the script.
 DOCKER_LABEL=g1_apple_mimic=annotate DOCKER_NAME=g1_apple_mimic_annotate \
 ./arena_run.sh "$GPU" \
-  "/isaac-sim/python.sh isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+  "/isaac-sim/python.sh g1_apple_mimic/run_patched.py isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
     --headless --device ${ANNOTATE_DEVICE:-cpu} --auto \
     --input_file ${SOURCE_HDF5} \
     --output_file ${ANNOTATED_HDF5} \

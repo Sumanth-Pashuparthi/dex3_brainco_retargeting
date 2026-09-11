@@ -26,8 +26,10 @@ TARGET="$ARENA_DIR/isaaclab_arena/scripts/imitation_learning/annotate_demos.py"
 [[ -f "$TARGET" ]] || fail "not found: $TARGET"
 if grep -qF "_as_tensor" "$TARGET"; then
   echo "  already patched"
-elif git -C "$ARENA_DIR" apply "$(pwd)/annotate_demos.patch"; then
-  echo "  applied annotate_demos.patch"
+elif [[ -d "$ARENA_DIR/.git" ]] && git -C "$ARENA_DIR" apply "$(pwd)/annotate_demos.patch"; then
+  echo "  applied annotate_demos.patch (git apply)"
+elif patch -p1 -d "$ARENA_DIR" --forward --silent < "$(pwd)/annotate_demos.patch"; then
+  echo "  applied annotate_demos.patch (patch -p1; Arena tree is not a git checkout)"
 else
   fail "patch did not apply; $TARGET may have changed upstream"
 fi

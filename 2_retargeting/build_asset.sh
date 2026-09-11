@@ -28,6 +28,15 @@ PYTHONUNBUFFERED=1 /isaac-sim/python.sh convert_urdf_to_usd.py \
   --urdf ${URDF_STAGING}/g1_29dof_with_brainco_hand.urdf \
   --out ${CONTAINER_WORKDIR}/${ASSET_SUBDIR}/${ASSET_NAME}"
 
+# Isaac Lab's UrdfConverter writes into <out_dir>/<asset_name>/{<asset>.usda,payloads/,Textures/},
+# one level deeper than --out names. Flatten so the embodiment's hard-coded path resolves.
+NESTED="$ARENA_DIR/$ASSET_SUBDIR/${ASSET_NAME%.*}"
+if [[ -d "$NESTED" && -f "$NESTED/$ASSET_NAME" && ! -f "$ARENA_DIR/$ASSET_SUBDIR/$ASSET_NAME" ]]; then
+  echo "Flattening converter output from $NESTED"
+  mv "$NESTED"/* "$ARENA_DIR/$ASSET_SUBDIR/" && rmdir "$NESTED"
+fi
+[[ -f "$ARENA_DIR/$ASSET_SUBDIR/$ASSET_NAME" ]] || { echo "converter did not produce $ARENA_DIR/$ASSET_SUBDIR/$ASSET_NAME" >&2; exit 1; }
+
 echo
 echo "Patching converted USD"
 python3 patch_converted_usd.py "$ARENA_DIR/$ASSET_SUBDIR"

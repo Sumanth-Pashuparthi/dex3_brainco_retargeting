@@ -40,7 +40,9 @@ echo "[2/3] normalisation stats -> meta/{stats,relative_stats}.json"
     --modality-config-path "$MODALITY_CFG" ) 2>&1 | tee -a "$LOG"
 
 echo "[3/3] validate with GR00T's own loader"
-( cd "$GR00T_DIR" && "$GR00T_PY" "$(pwd)/g1_apple_mimic/validate_lerobot.py" \
+# Resolve the validator path before the cd: $(pwd) inside the subshell would be $GR00T_DIR.
+VALIDATOR="$(pwd)/g1_apple_mimic/validate_lerobot.py"
+( cd "$GR00T_DIR" && "$GR00T_PY" "$VALIDATOR" \
     --dataset_path "$H_LEROBOT" --modality_config_path "$MODALITY_CFG" ) 2>&1 | tee -a "$LOG"
 
 echo

@@ -73,11 +73,17 @@ def patch_root_joint(root: str) -> str:
         return f"skip: {path} not found"
     text = read(path)
 
+    # Undo the malformed block an earlier version of this script appended (`active` inside the body
+    # braces instead of the metadata parentheses, which makes the whole layer fail to parse).
+    text = re.sub(r'\n[ \t]*over "root_joint"\s*\{\s*active = false\s*\}\n', "\n", text)
+
     if re.search(r'over "root_joint"\s*\(\s*active = false', text):
+        write(path, text)
         return "root_joint: already deactivated"
 
-    # The converter writes `over "root_joint" ( prepend apiSchemas = [...] )`; replace the
-    # parenthesised metadata with `active = false`, which composes over the joint definition.
+    # `active` is prim metadata, so it has to sit in the parenthesised block before the body.
+    # Converter versions differ: some write `over "root_joint" ( prepend apiSchemas = [...] )`,
+    # newer ones a bare `over "root_joint" { }`. Handle both.
     patched, n = re.subn(
         r'(over "root_joint"\s*\()[^)]*(\))',
         r"\1\n            active = false\n        \2",
@@ -85,15 +91,22 @@ def patch_root_joint(root: str) -> str:
         count=1,
     )
     if n == 0:
-        # No `over` block exists yet; append one inside the outermost scope.
-        idx = text.rstrip().rfind("}")
-        if idx < 0:
-            return "root_joint: FAILED, unexpected layer structure"
-        patched = (
-            text[:idx]
-            + '\n        over "root_joint"\n        {\n            active = false\n        }\n'
-            + text[idx:]
+        patched, n = re.subn(
+            r'(over "root_joint")(\s*\{)',
+            r"\1 (\n            active = false\n        )\2",
+            text,
+            count=1,
         )
+    if n == 0:
+        # No `over` block at all: add one under the Physics scope, where physics.usda defines the joint.
+        patched, n = re.subn(
+            r'(\n    over "Physics"\s*\{\n)',
+            r'\1        over "root_joint" (\n            active = false\n        )\n        {\n        }\n\n',
+            text,
+            count=1,
+        )
+    if n == 0:
+        return "root_joint: FAILED, unexpected layer structure (no root_joint or Physics scope in physx.usda)"
     write(path, patched)
     return "root_joint: deactivated"
 
