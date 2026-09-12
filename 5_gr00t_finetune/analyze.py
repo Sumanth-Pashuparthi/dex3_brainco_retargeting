@@ -109,34 +109,32 @@ def _bar_with_ci(ax, labels, pairs, colors, *, annotate_n=True, ymax=1.0):
 
 
 def fig_headline(data, plt):
-    """What fine-tuning bought, scored conservatively.
+    """What the transfer bought, under matched +/-5 cm scoring where possible.
 
-    The fine-tuned bar is the +/-5 cm randomised-spawn run, not the fixed-spawn one. The fixed
-    spawn is the pose every training demonstration was generated around, so scoring the fine-tuned
-    policy there would be scoring it on its own training point; see the `reportable: false` note on
-    ft_r1r2_c5000_j0 in results.json. That makes this comparison unequal in the fine-tune's
-    disfavour -- it is asked for a new apple position, the baselines are not -- and therefore a
-    lower bound on the gain.
+    Bars: Dex3 fixed (as-shipped reference), Dex3 +/-5 cm (matched protocol), Revo2 retarget-only
+    (fixed), Revo2 fine-tuned +/-5 cm. The headline claim is Dex3 +/-5 cm 0.30 -> fine-tuned 0.50.
+    The fixed-spawn fine-tuned score is excluded (reportable: false on ft_r1r2_c5000_j0).
     """
-    rows = [ev(data, i) for i in ("frozen_dex3", "frozen_revo2", "ft_r1r2_c5000")]
-    labels = ["Dex3-1 hands, frozen policy\n(fixed spawn, as shipped)",
-              "Revo2 hands, frozen policy\nretargeting only (fixed spawn)",
-              "Revo2 hands, fine-tuned on r1r2\n(+/-5 cm random spawn)"]
-    fig, ax = plt.subplots(figsize=(7.0, 2.95))
+    rows = [ev(data, i) for i in ("frozen_dex3", "frozen_dex3_j05", "frozen_revo2", "ft_r1r2_c5000")]
+    labels = ["Dex3-1 frozen\n(fixed spawn)",
+              "Dex3-1 frozen\n(+/-5 cm spawn)",
+              "Revo2 frozen\nretarget only (fixed)",
+              "Revo2 fine-tuned\n(+/-5 cm spawn)"]
+    fig, ax = plt.subplots(figsize=(8.2, 3.1))
     _bar_with_ci(
         ax,
         labels,
         [(r["successes"], r["n"]) for r in rows],
-        [C_REF, C_FROZEN, C_R1R2],
+        [C_REF, C_REF, C_FROZEN, C_R1R2],
         ymax=0.96,
     )
-    ref = rows[0]["successes"] / rows[0]["n"]
-    ax.axhline(ref, ls="--", lw=1, color=C_REF, zorder=2)
-    ax.text(0.5, ref + 0.015, "source-embodiment reference", fontsize=8, color=C_REF,
+    matched = rows[1]["successes"] / rows[1]["n"]
+    ax.axhline(matched, ls="--", lw=1, color=C_REF, zorder=2)
+    ax.text(1.5, matched + 0.02, "matched Dex3 +/-5 cm reference", fontsize=8, color=C_REF,
             ha="center")
     ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8])
-    ax.set_title("Retargeting alone leaves an 8x gap that fine-tuning mostly closes\n"
-                 "the fine-tuned bar is scored on random spawns, the baselines on a fixed one",
+    ax.set_title("Matched protocol: Dex3 +/-5 cm 0.30 -> Revo2 fine-tuned 0.50\n"
+                 "retargeting alone is 0.06; the recovery is Mimic harvest + fine-tune",
                  fontsize=10.5)
     fig.tight_layout()
     fig.savefig(FIGURES / "fig1_headline.png", dpi=170)
@@ -532,15 +530,20 @@ def summary(data) -> str:
     fr = ev(data, "frozen_revo2")
     ft = ev(data, "ft_r1r2_c5000")
     dex = ev(data, "frozen_dex3")
-    add("  NOTE: the fine-tuned policy is compared at +/-5 cm random spawn against baselines at the")
-    add("  fixed spawn, which is harder for it, so these gaps are lower bounds. The fixed-spawn")
-    add("  fine-tuned run is excluded entirely -- that pose is its own training point.")
+    dex_j = ev(data, "frozen_dex3_j05")
+    add("  HEADLINE (matched +/-5 cm protocol): Dex3 frozen vs Revo2 fine-tuned.")
+    p = two_proportion_p(ft["successes"], ft["n"], dex_j["successes"], dex_j["n"])
+    add(f"  fine-tuned (+/-5cm) vs Dex3 (+/-5cm):      "
+        f"{ft['successes']}/{ft['n']} vs {dex_j['successes']}/{dex_j['n']}  "
+        f"= {ft['successes']/ft['n']:.2f} vs {dex_j['successes']/dex_j['n']:.2f}  p={p:.3f}")
+    add("  Retarget-only gap (fixed spawn) and as-shipped Dex3 reference:")
     p = two_proportion_p(ft["successes"], ft["n"], fr["successes"], fr["n"])
     add(f"  fine-tuned (+/-5cm) vs frozen Revo2 (fixed): "
         f"{ft['successes']}/{ft['n']} vs {fr['successes']}/{fr['n']}  p={p:.2e}")
     p = two_proportion_p(ft["successes"], ft["n"], dex["successes"], dex["n"])
     add(f"  fine-tuned (+/-5cm) vs frozen Dex3 (fixed):  "
         f"{ft['successes']}/{ft['n']} vs {dex['successes']}/{dex['n']}  p={p:.3f}")
+    add("  (Fixed-spawn fine-tuned run is excluded -- that pose is its own training point.)")
 
     a = ev(data, "ft_r1r2_c5000")
     b = ev(data, "ft_r2r3_c10000")

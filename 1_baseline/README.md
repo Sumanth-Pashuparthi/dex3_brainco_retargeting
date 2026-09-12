@@ -18,7 +18,13 @@ against.
 | Instruction | `"move the apple to the plate"` |
 | Episode | 6.0 s, 50 Hz control |
 | Success | `object_on_destination`: apple/plate contact, 0.5 N force, 0.1 m/s velocity |
-| **Measured** | **0.65 task success (13/20 episodes)** |
+| **Measured (fixed spawn, 6 s)** | **0.65 task success (13/20 episodes)** |
+| **Measured (±5 cm spawn, 14 s)** | **0.30 task success (6/20 episodes)** — matched protocol for the fine-tune evals |
+
+The ±5 cm / 14 s number is the fair Dex3 reference for step 5's Revo2 fine-tuned result (0.50 at
+the same jitter and timeout). The fixed-spawn 0.65 remains the as-shipped baseline this step was
+originally written around. Provenance for the jittered run:
+`eval/g1_apple_mimic/rollouts_dex3_baseline_j05_20260911_165851`.
 
 The lower body is held in a standing balance by the AGILE whole-body controller; the policy predicts
 upper-body joint targets only and the robot never walks, so no locomotion controller enters the
@@ -95,6 +101,10 @@ The first ~4 minutes are Isaac Sim startup with no output. Expected tail:
 ```
 FINAL METRICS: {'success_rate': 0.65, 'object_moved_rate': 0.65, 'num_episodes': 20}
 ```
+
+At fixed spawn that is the as-shipped reference. The matched-protocol Dex3 number used against
+the fine-tuned Revo2 result is **0.30 (6/20)** at ±5 cm spawn / 14 s
+(`rollouts_dex3_baseline_j05_20260911_165851`).
 
 [`media/baseline_episode.mp4`](media/baseline_episode.mp4) is one successful episode through the
 robot's head camera, which is also the policy's own visual input. The filmstrip above is the same

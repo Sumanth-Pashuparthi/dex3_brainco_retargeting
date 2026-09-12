@@ -181,7 +181,28 @@
       "model": "GN1x base (no fine-tuning)",
       "successes": 13, "n": 20, "jitter_m": 0.0,
       "inference": "stock",
-      "note": "the source embodiment the checkpoint was trained on; the reference number"
+      "embodiment": "g1_wbc_agile_joint",
+      "episode_length_s": 6.0,
+      "note": "the source embodiment the checkpoint was trained on; fixed-spawn reference as shipped"
+    },
+    {
+      "id": "frozen_dex3_j05",
+      "stage": "Assignment 1",
+      "label": "Dex3-1 hands, frozen policy\n(+/-5 cm random spawn)",
+      "model": "GN1x base (no fine-tuning)",
+      "successes": 6, "n": 20, "jitter_m": 0.05,
+      "inference": "stock",
+      "embodiment": "g1_wbc_agile_joint",
+      "episode_length_s": 14.0,
+      "eval_dir": "eval/g1_apple_mimic/rollouts_dex3_baseline_j05_20260911_165851",
+      "note": [
+        "MATCHED-PROTOCOL source baseline for the fine-tuned Revo2 number. Same +/-5 cm spawn",
+        "jitter, 14 s timeout and success term as ft_r1r2_c5000. Under this protocol the transfer",
+        "pipeline (retarget + self-harvested Mimic demos + fine-tune) moves the task from",
+        "6/20 = 0.30 on Dex3-1 to 70/140 = 0.50 on Revo2 (two-proportion p = 0.094; Dex3 n is",
+        "still small, Wilson 95% CI [0.15, 0.52]). This is the headline comparison for matched",
+        "difficulty; frozen_dex3 (13/20 at fixed spawn, 6 s) remains the as-shipped reference."
+      ]
     },
     {
       "id": "frozen_revo2",

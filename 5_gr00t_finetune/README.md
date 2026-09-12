@@ -1,22 +1,31 @@
 # Step 5 — Fine-tuning GR00T N1.7 onto the Revo2 hands
 
 Step 3 ended with a number: the frozen policy scores **0.06** on the BrainCo Revo2 hands against
-**0.65** on the Dex3-1 hands it was trained on, after the retargeting layer had matched the two
-hands about as well as a closed-form map can. Step 4 turned the 6% that already worked into
+**0.65** on the Dex3-1 hands it was trained on (fixed spawn), after the retargeting layer had matched
+the two hands about as well as a closed-form map can. Step 4 turned the 6% that already worked into
 demonstrations. This step trains on them and measures what came back.
 
-**Result: 0.06 → 0.50**, an eight-fold gain (70/140, p = 5 × 10⁻¹³ against the frozen 6/100), and
-not separable from the 0.65 source-embodiment baseline at this sample size (p = 0.21).
+### Headline (matched ±5 cm protocol)
+
+When Dex3-1 and the fine-tuned Revo2 are scored the **same** way — ±5 cm random spawn, 14 s
+timeout — the transfer moves the task:
+
+> **0.30 → 0.50** (Dex3-1 frozen 6/20 → Revo2 fine-tuned 70/140)
+
+Retargeting alone is still only **0.06** (6/100, fixed spawn). The jump to 0.50 is retargeting
+*plus* 1,668 self-harvested Mimic demos fine-tuned onto Revo2 — an eight-fold gain over
+retarget-only (p = 5 × 10⁻¹³ against 6/100). Against the matched Dex3 ±5 cm baseline the lift is
++20 points (p = 0.094; Dex3 Wilson 95% CI [0.15, 0.52], so the Dex3 side is still noisy at n = 20).
 
 ![headline](figures/fig1_headline.png)
 
-That 0.50 is measured with **±5 cm of random spawn jitter**, while both frozen baselines were scored
-at the single fixed pose the task ships with. The comparison therefore runs *against* the fine-tune
-and the gain is a lower bound.
+That 0.50 is measured with **±5 cm of random spawn jitter**. The fixed-spawn Dex3 0.65 and
+retarget-only 0.06 remain as-shipped references; the matched-protocol Dex3 number is
+`frozen_dex3_j05` in `results/results.json` (6/20).
 
-**What is deliberately not reported here is the fine-tuned score at that fixed spawn.** It is 19/20,
-and it is meaningless: the fixed pose is the one all 1,668 training demonstrations were generated
-around, so asking the policy for it again tests it on its own training point and measures
+**What is deliberately not reported as a headline is the fine-tuned score at the fixed spawn.** It
+is 19/20, and it is meaningless: the fixed pose is the one all 1,668 training demonstrations were
+generated around, so asking the policy for it again tests it on its own training point and measures
 memorisation of one apple position rather than the skill the fine-tune was meant to buy. The number
 is kept in `results/results.json` flagged `reportable: false`, and every figure and claim in this
 README excludes it.
@@ -43,17 +52,20 @@ So 22 harvested successes were multiplied by Isaac Lab Mimic into 1,668 episodes
 spawn jittered uniformly, and GR00T N1.7 was fine-tuned on them from NVIDIA's task-tuned
 checkpoint for 5,000 steps at global batch 192.
 
-**What it bought: 0.06 → 0.50 under randomised spawns.** The behavioural hypothesis was correct,
-and it was worth confirming before spending anything on more data.
+**What it bought: 0.06 → 0.50 under randomised spawns**, and **0.30 → 0.50 against Dex3 under the
+same ±5 cm protocol**. The behavioural hypothesis was correct, and it was worth confirming before
+spending anything on more data.
 
 Two things are worth being precise about in that number:
 
-- **It reaches the 0.65 Dex3 baseline to within noise** (p = 0.21), under harder scoring than the
-  baseline got. That is not a claim that the Revo2 is the better hand: the comparison is asymmetric
-  in the other direction too, because this policy is specialised to one embodiment, one object and
-  one scene while the baseline checkpoint is a general apple-to-plate policy.
-- **n = 140.** The 95% Wilson interval is [0.42, 0.58] — comfortably above 0.06, but 0.50 is the
-  centre of a real interval, not a point fact.
+- **Against the matched Dex3 ±5 cm baseline it is ahead** (0.50 vs 0.30, p = 0.094). Against the
+  older fixed-spawn Dex3 0.65 it is not separable (p = 0.21), but that comparison is asymmetric:
+  the fine-tune is asked for a new apple position and the fixed Dex3 baseline is not. That is not a
+  claim that the Revo2 is the better hand: this policy is specialised to one embodiment, one object
+  and one scene while the baseline checkpoint is a general apple-to-plate policy.
+- **n = 140 on the Revo2 side; n = 20 on the matched Dex3 side.** The Revo2 95% Wilson interval is
+  [0.42, 0.58]; the Dex3 ±5 cm interval is [0.15, 0.52]. 0.50 is the centre of a real interval, not
+  a point fact, and the Dex3 matched baseline still wants more rollouts.
 
 ### Round 3 (`r3`, 979 episodes) — because the specialist could not generalise
 
@@ -298,11 +310,14 @@ is an upper bound on true pick-and-place. Audit the videos before quoting a rate
 
 ## Every number, in one table
 
-All rows: same task, scene, embodiment (`g1_wbc_agile_joint_brainco`), 50 Hz, 14 s timeout.
+Protocol unless noted: same task / scene, 50 Hz, 14 s timeout. Dex3 rows use
+`g1_wbc_agile_joint`; Revo2 rows use `g1_wbc_agile_joint_brainco`. The fixed-spawn Dex3 row used the
+original 6 s timeout from step 1.
 
 | Model | Spawn jitter | Result | 95% CI |
 |---|---|---|---|
 | Frozen policy, Dex3-1 hands | 0 cm | 13/20 = 0.65 | [0.43, 0.82] |
+| **Frozen policy, Dex3-1 hands** | **±5 cm** | **6/20 = 0.30** | **[0.15, 0.52]** |
 | Frozen policy, Revo2 hands | 0 cm | 6/100 = 0.06 | [0.03, 0.12] |
 | Fine-tuned on r1r2, step 5000 | 0 cm | 19/20 = 0.95 — *excluded, training point* | [0.76, 0.99] |
 | Fine-tuned on r1r2, step 2000 | ±5 cm | 15/40 = 0.375 | [0.24, 0.53] |
@@ -312,6 +327,8 @@ All rows: same task, scene, embodiment (`g1_wbc_agile_joint_brainco`), 50 Hz, 14
 | Fine-tuned on r2r3, step 8000 | ±5 cm | 22/40 = 0.55 | [0.40, 0.69] |
 | Fine-tuned on r2r3, step 10000 | ±5 cm | 25/50 = 0.50 | [0.37, 0.63] |
 | Fine-tuned on r1r2, step 5000 | ±10 cm | 0/10 = 0.00 | [0.00, 0.28] |
+
+**Matched-protocol headline:** Dex3 ±5 cm **0.30** → Revo2 fine-tuned ±5 cm **0.50**.
 
 ## What I would do next, in order
 

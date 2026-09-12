@@ -4,32 +4,41 @@ A GR00T N1.7 policy, trained on a Unitree G1 29-DoF with **7-DoF Dex3-1 hands**,
 same robot with **6-DoF BrainCo Revo2 Touch hands** — first by retargeting alone, then by
 fine-tuning on demonstrations the retargeted policy generated for itself.
 
-|  | Dex3-1 (source) | Revo2 Touch (target) | Revo2, fine-tuned |
-|---|---|---|---|
-| Actuated DoF per hand | 7 | 6 | 6 |
-| Fingers | 3 | 5 | 5 |
-| Robot DoF | 43 | 41 | 41 |
-| Task success | **0.65** (13/20) | **0.06** (6/100, all frame-verified) | **0.50** (70/140) |
-| Apple spawn at evaluation | fixed, as shipped | fixed, as shipped | **±5 cm, random** |
+### Headline result (matched protocol)
 
-The task, scene, success criterion, episode length and evaluation script are identical across all
-three columns; only the hands, the weights, and — for the third column — the spawn randomisation
-change.
+Under the **same** evaluation the fine-tuned Revo2 policy is scored on — ±5 cm random apple spawn,
+14 s timeout, same task / scene / success term — the frozen Dex3-1 source policy scores
+**0.30 (6/20)** and the transferred Revo2 policy scores **0.50 (70/140)**:
 
-The middle column is a measurement of the embodiment gap. Retargeting the hand geometry as well as
-a closed-form map can gets to 0.06, and the residual is behavioural rather than geometric — which
-is why the third column exists. 1,668 demonstrations harvested from the retargeted policy itself,
-multiplied by Isaac Lab Mimic, recover it to 0.50: an eight-fold gain (p = 5 × 10⁻¹³) that is not
-separable from the 0.65 source baseline at this sample size (p = 0.21).
+> **Dex3-1 ±5 cm → Revo2 after retarget + Mimic harvest + fine-tune: 0.30 → 0.50**
 
-The third column is scored on **random** spawns while the baselines are scored on the single fixed
-pose the task ships with, so it is the harder test of the three and the gain is a lower bound. The
-fine-tuned policy's score at that fixed pose is deliberately not reported anywhere in this
-repository: it is the pose all 1,668 of its training demonstrations were generated around, so it
-measures memorisation of one apple position rather than a transferred skill.
+That is the fair comparison. Retargeting alone does *not* get you there (it drops to 0.06 on fixed
+spawn); the recovery is from self-harvested Mimic demos fine-tuned onto the retargeted embodiment.
+Dex3 n is still small (Wilson 95% CI [0.15, 0.52]; two-proportion p = 0.094 vs 0.50), so treat 0.30
+as a centre estimate, not a precise floor.
 
-The interesting part of this repository is where the third column stops working: 0.00 at ±10 cm, and
-a second 979-episode round aimed at exactly that weakness did not measurably fix it.
+|  | Dex3-1 (source) | Dex3-1 (source) | Revo2, retarget only | Revo2, fine-tuned |
+|---|---|---|---|---|
+| Actuated DoF per hand | 7 | 7 | 6 | 6 |
+| Fingers | 3 | 3 | 5 | 5 |
+| Robot DoF | 43 | 43 | 41 | 41 |
+| Apple spawn at evaluation | fixed, as shipped | **±5 cm, random** | fixed, as shipped | **±5 cm, random** |
+| Episode timeout | 6 s | 14 s | 6 s | 14 s |
+| Task success | **0.65** (13/20) | **0.30** (6/20) | **0.06** (6/100, frame-verified) | **0.50** (70/140) |
+
+The fixed-spawn Dex3 column (0.65) is the as-shipped reference from step 1. The ±5 cm Dex3 column
+is the matched-protocol baseline measured later on the same harness as the fine-tune evals
+(`rollouts_dex3_baseline_j05_20260911_165851`). The Revo2 retarget-only column is the embodiment
+gap after geometry mapping alone. The fine-tuned column is what 1,668 self-harvested Mimic demos
+bought back: an eight-fold gain over retarget-only (p = 5 × 10⁻¹³ against 6/100).
+
+The fine-tuned policy's score at the fixed spawn is deliberately not reported as a headline number:
+it is the pose all 1,668 of its training demonstrations were generated around, so it measures
+memorisation of one apple position rather than a transferred skill (kept in `results.json` as
+`reportable: false`).
+
+The interesting part of this repository is where the fine-tuned policy stops working: 0.00 at
+±10 cm, and a second 979-episode round aimed at exactly that weakness did not measurably fix it.
 [`5_gr00t_finetune/`](5_gr00t_finetune/) is that investigation.
 
 [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) is one of the six verified Revo2
@@ -123,7 +132,7 @@ six install steps does.
 # The inference server runs on the host and is shared by every step that runs a policy.
 (cd 1_baseline && ./run_policy_server.sh)      # leave running
 
-# 1. baseline: expect success_rate 0.65
+# 1. baseline: expect ~0.65 at fixed spawn; matched +/-5 cm reference is 0.30 (6/20)
 (cd 1_baseline && ./run_eval.sh 100)
 
 # 2. build the Revo2 asset and install the retargeting layer
@@ -202,8 +211,8 @@ likely; they are recorded in [docs/assignment1_report.pdf](docs/assignment1_repo
 Because the residual failures were behavioural rather than geometric, the fix had to be
 demonstrations — and none of them were teleoperated. The 6% of episodes that already succeeded were
 harvested from the retargeted policy itself and multiplied by Mimic. Fine-tuning on 1,668 of them
-took the task from **0.06 to 0.50 under randomised spawns**, which confirmed the diagnosis from
-step 3.
+took the task from **0.06 to 0.50 under randomised spawns**, and from **0.30 → 0.50 against the
+Dex3 source under the same ±5 cm protocol**, which confirmed the diagnosis from step 3.
 
 It also produced a specialist. The same checkpoint scores **0.00 at ±10 cm** of spawn jitter: it
 learned the task but not the workspace, which is what cloning 1,668 replays of 22
@@ -263,8 +272,9 @@ Three more caveats worth knowing before quoting anything:
 - **Spawn jitter is not comparable across values.** Steps 1 and 3 measure the stock deterministic
   spawn (`APPLE_SPAWN_XY_RANGE_M = 0.0`), which tests repeatability under physics and policy
   stochasticity. Step 5's checkpoint sweep uses ±5 cm, which tests spatial generalisation as well.
-  Only the 0 cm rows compare to the 0.65 and 0.06 above; `results.json` records the jitter beside
-  every rate for that reason.
+  The matched-protocol headline is therefore **Dex3 ±5 cm (0.30) vs Revo2 fine-tuned ±5 cm
+  (0.50)**; the fixed-spawn 0.65 / 0.06 rows are a separate as-shipped reference.
+  `results.json` records the jitter beside every rate for that reason.
 - **The fine-tuned numbers all start from NVIDIA's task-tuned checkpoint**, so none of them
   isolates what our demonstrations contributed from what the base model already knew. The run that
   would settle it (`VARIANT=r2r3-base`) is staged and has not been run.
