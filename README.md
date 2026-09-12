@@ -12,6 +12,14 @@ Under the **same** evaluation the fine-tuned Revo2 policy is scored on — ±5 c
 
 > **Dex3-1 ±5 cm → Revo2 after retarget + Mimic harvest + fine-tune: 0.30 → 0.50**
 
+![Dex3-1 and Revo2 each completing the task](dex3_vs_revo2_success.gif)
+
+One success from each side of that comparison, head camera, both under the ±5 cm protocol: the
+3-fingered Dex3-1 hand the policy was trained on, and the 5-fingered Revo2 hand it was moved to.
+Each episode ends the instant the success term fires, which is why the clips are different lengths
+and why the finished panel dims — the Dex3 grasp took 3.0 s and the Revo2 one 5.1 s. Both were
+checked frame by frame as real grasps rather than the apple being pushed into the plate.
+
 That is the fair comparison. Retargeting alone does *not* get you there (it drops to 0.06 on fixed
 spawn); the recovery is from self-harvested Mimic demos fine-tuned onto the retargeted embodiment.
 Dex3 n is still small (Wilson 95% CI [0.15, 0.52]; two-proportion p = 0.094 vs 0.50), so treat 0.30
@@ -67,6 +75,7 @@ Five steps, in the order they were done. Each has its own README with commands a
 | [`assignment1_report.pdf`](assignment1_report.pdf) | The write-up: platform choice, the correspondence, asset changes, the fine-tuning results and sim-to-real notes. |
 | [`assignment2_report.pdf`](assignment2_report.pdf) | Assignment 2 (2 pages): the process for teaching a new right-to-left handover skill on the same G1 + Revo2 stack. |
 | [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) | Headline clip: all 140 evaluation rollouts of the fine-tuned policy on the Revo2 hand, synchronised on one grid — the 70/140 = 0.50 in full, successes and failures alike. |
+| [`dex3_vs_revo2_success.gif`](dex3_vs_revo2_success.gif) | The loop at the top: one Dex3-1 success beside one Revo2 success, same protocol. |
 
 The generated data is not committed (`.gitignore` covers `*.hdf5`, `*.parquet`, `lerobot/`). All
 three dataset rounds are published on Hugging Face in GR00T-LeRobot v2.1 form — ready to hand
