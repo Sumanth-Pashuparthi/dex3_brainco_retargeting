@@ -44,7 +44,7 @@ Object-moved is the more informative column. It separates "the hand never reache
 in the last row while success rises: most of that 0.44 was the hand sweeping the apple sideways, and
 the pelvis fix removed the sweeps.
 
-Full account, including the rejected hypotheses, in [docs/assignment1_report.pdf](../docs/assignment1_report.pdf).
+Full account, including the rejected hypotheses, in [assignment1_report.pdf](../assignment1_report.pdf).
 
 ## What is used
 

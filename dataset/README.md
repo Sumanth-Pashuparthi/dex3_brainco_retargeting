@@ -10,7 +10,7 @@ GR00T N1.7 layout). The heavy files are not in git — this folder is the in-rep
 | | |
 |---|---|
 | Episodes | 200 |
-| Frames | 51 746 at 50 Hz |
+| Frames | 51 546 at 50 Hz |
 | Size on Hub | ~129 MB LeRobot tree (raw `gen_w*.hdf5` shards are larger) |
 | Camera | head `ego_view`, 640×480 |
 | Pipeline | [`4_mimic_datagen/`](../4_mimic_datagen/) |

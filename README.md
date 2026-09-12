@@ -41,11 +41,16 @@ The interesting part of this repository is where the fine-tuned policy stops wor
 ±10 cm, and a second 979-episode round aimed at exactly that weakness did not measurably fix it.
 [`5_gr00t_finetune/`](5_gr00t_finetune/) is that investigation.
 
-[`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) is one of the six verified Revo2
-successes (episode 57 of the 100-episode evaluation, head camera, 6 s): the frozen Dex3 policy,
-through the retargeting layer, grasping the apple with the Revo2 hand on the first attempt, lifting
-it, carrying it and placing it on the plate. The other five, and the false-success counter-example,
-are in [`3_g1_brainco_inference/media/`](3_g1_brainco_inference/media/).
+[`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) is every rollout behind that
+0.50: all 140 evaluation episodes of the fine-tuned policy, played at once on a 14×10 grid, head
+camera, ±5 cm random spawn. Borders are green for success and red for failure, and a tile dims when
+its episode ends — so the successes drop out between 5 and 8.5 s while the failures stay lit to the
+14 s timeout, which is the "every failure runs the full clock" result visible directly rather than
+as a statistic.
+
+For a single episode at full resolution, the six verified retarget-only successes and the
+false-success counter-example are in
+[`3_g1_brainco_inference/media/`](3_g1_brainco_inference/media/).
 
 ## Repository layout
 
@@ -59,9 +64,9 @@ Five steps, in the order they were done. Each has its own README with commands a
 | [`4_mimic_datagen/`](4_mimic_datagen/) | Harvest the policy's successes and multiply them with Isaac Lab Mimic into fine-tuning datasets. |
 | [`5_gr00t_finetune/`](5_gr00t_finetune/) | Fine-tune GR00T N1.7 on them, across three dataset rounds. Training, evaluation, the figures, and why the second round did not help. |
 | [`dataset/`](dataset/) | Pointer to the HF dataset ([pashuparthis/mimic_apple_pick_and_place](https://huggingface.co/datasets/pashuparthis/mimic_apple_pick_and_place)); `./fetch.sh` downloads it (or use the local symlink). |
-| [`docs/assignment1_report.pdf`](docs/assignment1_report.pdf) | The write-up: platform choice, the correspondence, asset changes, the fine-tuning results and sim-to-real notes. |
+| [`assignment1_report.pdf`](assignment1_report.pdf) | The write-up: platform choice, the correspondence, asset changes, the fine-tuning results and sim-to-real notes. |
 | [`assignment2_report.pdf`](assignment2_report.pdf) | Assignment 2 (2 pages): the process for teaching a new right-to-left handover skill on the same G1 + Revo2 stack. |
-| [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) | Headline clip: the retargeted policy completing the task on the Revo2 hand (same as `3_g1_brainco_inference/media/success_ep057.mp4`). |
+| [`g1_brainco_gr00t_inference.mp4`](g1_brainco_gr00t_inference.mp4) | Headline clip: all 140 evaluation rollouts of the fine-tuned policy on the Revo2 hand, synchronised on one grid — the 70/140 = 0.50 in full, successes and failures alike. |
 
 The generated data is not committed (`.gitignore` covers `*.hdf5`, `*.parquet`, `lerobot/`). All
 three dataset rounds are published on Hugging Face in GR00T-LeRobot v2.1 form — ready to hand
@@ -85,6 +90,24 @@ hf download pashuparthis/mimic_apple_pick_and_place --repo-type dataset \
 Or rebuild from scratch with `4_mimic_datagen/` (`run_generate.sh`, `run_generate_targeted.sh`,
 `run_merge.sh`, `run_convert.sh`).
 
+## The trained policy
+
+The final fine-tune — step 10000 of the `r2r3` run, the 0.50 above — is published:
+
+**[pashuparthis/dex3-brainco-retargeted-policy](https://huggingface.co/pashuparthis/dex3-brainco-retargeted-policy)**
+
+```bash
+hf download pashuparthis/dex3-brainco-retargeted-policy --local-dir ./policy
+```
+
+It holds the inference weights and config only — 6.5 GB, no optimiser state — so it loads straight
+into `Gr00tPolicy` with `embodiment_tag="new_embodiment"`. Serve it with
+`5_gr00t_finetune/run_policy_server.sh` and evaluate it with `run_eval.sh`.
+
+One thing to know before using it: **the checkpoint still speaks Dex3-1.** It emits the same 50-D
+action the base policy did, and `2_retargeting/`'s layer is what turns those finger commands into
+the Revo2's 41 DoF underneath it. The weights on their own will not drive a Revo2 hand.
+
 All five steps are complete and their numbers are measured. Nothing in this repository is a plan:
 every rate quoted here came out of `isaaclab_arena/evaluation/policy_runner.py` on this machine,
 and [`5_gr00t_finetune/results/results.json`](5_gr00t_finetune/results/results.json) holds them all
@@ -92,14 +115,12 @@ with the protocol recorded next to each one.
 
 ## The write-up
 
-[docs/assignment1_report.pdf](docs/assignment1_report.pdf) is the full account: why this platform
-and task, what the two hands differ by, how the correspondence was derived, what changed in the
-asset, the retargeting results with the ablation and the pelvis investigation, the data-generation
-pipeline, then the fine-tuning — the three dataset rounds, what each bought, the generalisation
-limit, and the failure-mode analysis. It is generated from
-[`docs/assignment1_report.md`](docs/assignment1_report.md) by `docs/make_report.py`, which pulls
-every figure and every number from `5_gr00t_finetune/results/`, so the prose and the measurements
-cannot drift apart.
+[assignment1_report.pdf](assignment1_report.pdf) is the full account in four pages: why this
+platform and task, what the two hands differ by, how the correspondence was derived, what changed
+in the asset, the retargeting results with the ablation and the pelvis investigation, the
+data-generation pipeline, then the fine-tuning — the three dataset rounds, what each bought, the
+generalisation limit, and the failure-mode analysis. Every figure and every number in it comes from
+`5_gr00t_finetune/results/`.
 
 [assignment2_report.pdf](assignment2_report.pdf) is the two-page process write-up for Assignment 2:
 teaching the same stack a new skill on the Revo2 hands (pick with the right hand, hand over to the
@@ -154,8 +175,11 @@ The analysis and every figure regenerate with no GPU, from recorded results:
 
 ```bash
 (cd 5_gr00t_finetune && python3 analyze.py)
-(cd docs && python3 make_report.py)
 ```
+
+`assignment1_report.pdf` is the written write-up of all of this. It is checked in as a finished
+document; the markdown and the small matplotlib typesetter that produce it are kept outside this
+repository, so what you clone is the work and not the machinery that formatted it.
 
 Each step folder is self-contained: its own `env.sh`, container runner and media, with no references
 outside itself. Installation lives in steps 1 and 2, which share the same `WORK_DIR` defaults, so
@@ -185,7 +209,7 @@ Four things then have to be right at once:
   articulation is reached only inside the action term, so the policy, its client, the modality
   config and the whole-body controller are all untouched.
 
-Full derivation in [docs/assignment1_report.pdf](docs/assignment1_report.pdf) (section "The correspondence").
+Full derivation in [assignment1_report.pdf](assignment1_report.pdf) (section "The correspondence").
 
 ## The finding that mattered most was not in the hand
 
@@ -202,7 +226,7 @@ and what looked like drift was just the free-standing controller. Restoring it t
 pick-and-place from 1/100 to 6/100.
 
 Six other hypotheses were tested and rejected along the way, including two that seemed much more
-likely; they are recorded in [docs/assignment1_report.pdf](docs/assignment1_report.pdf) (section "The pelvis").
+likely; they are recorded in [assignment1_report.pdf](assignment1_report.pdf) (section "The pelvis").
 
 ## What fine-tuning fixed, and what it did not
 
@@ -279,17 +303,20 @@ Three more caveats worth knowing before quoting anything:
   isolates what our demonstrations contributed from what the base model already knew. The run that
   would settle it (`VARIANT=r2r3-base`) is staged and has not been run.
 
-## Components and licences
+## Versions this was built against
 
-| Component | Version | Licence |
-|---|---|---|
-| Isaac Sim | 6.0.0-dev2 | NVIDIA Omniverse EULA |
-| IsaacLab-Arena | `release/0.2.1` | Apache 2.0 |
-| Isaac-GR00T | `4b1dca9` | Apache 2.0 (code) |
-| GR00T N1.7 checkpoint | `nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace` | NVIDIA Open Model Licence |
-| Unitree G1 / Dex3-1 assets | as shipped with Arena | Unitree terms |
-| BrainCo Revo2 URDF and meshes | as supplied | BrainCo terms |
+These are the exact versions every number in this repository was measured on. Isaac Sim and Arena
+in particular move fast enough that a different release will change behaviour.
 
-Code in this repository is the retargeting layer, the asset patches, the analysis and the
-instrumentation. Everything else is upstream and unmodified except where
-[docs/assignment1_report.pdf](docs/assignment1_report.pdf) (section "The asset") says otherwise.
+| Component | Version |
+|---|---|
+| Isaac Sim | 6.0.0-dev2 |
+| IsaacLab-Arena | `release/0.2.1` |
+| Isaac-GR00T | `4b1dca9` |
+| Starting checkpoint | `nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace` |
+| Unitree G1 / Dex3-1 assets | as shipped with Arena |
+| BrainCo Revo2 URDF and meshes | as supplied |
+
+What is actually ours here is the retargeting layer, the asset patches, the data-generation
+pipeline and the analysis. Everything else is upstream and unmodified, except for the asset fixes
+[assignment1_report.pdf](assignment1_report.pdf) sets out in "The robot underneath the hand".

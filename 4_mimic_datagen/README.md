@@ -20,7 +20,7 @@ lower panel the brief finger-command spike at 0.71 s is debounced away, so the h
 | Converted source demos | 14 clean single-grasp demos kept of the 22, 23-D Pink actions, `--scripted_place --z_offset 0.025 --pad_steps 60` |
 | Annotation | **9 / 14 sources replay to success** in the Revo2 Pink embodiment (the 5 losses are missed grasps) |
 | Generation | **200 / 200 demos**, 6 workers on 3 GPUs, 62 min, **61% generation success** (326 trials) |
-| Converted dataset | **200 episodes, 51 746 frames, 50 Hz**, 129 MB LeRobot v2, GR00T loader validation passes |
+| Converted dataset | **200 episodes, 51 546 frames, 50 Hz**, 129 MB LeRobot v2, GR00T loader validation passes |
 
 The harvest rate is worth noting on its own: 6.5% over 553 independent episodes is an independent
 confirmation of the 0.06 success rate measured in step 3, from a different script on different runs.
@@ -212,5 +212,7 @@ The output plugs into GR00T N1.7 post-training as the target-embodiment demonstr
 failure analysis asks for: grasp slip on the Revo2 finger kinematics and the hand's slower closing
 are timing and contact problems a frozen policy cannot fix. Fine-tuning on this data and re-running
 `3_g1_brainco_inference/run_eval.sh` against the same 100 episodes is the comparison that closes the
-loop. The dataset exists ([pashuparthis/mimic_apple_pick_and_place](https://huggingface.co/datasets/pashuparthis/mimic_apple_pick_and_place));
-the fine-tuning run and the post-fine-tuning number are not done yet.
+loop. Both are now done: the dataset is at
+[pashuparthis/mimic_apple_pick_and_place](https://huggingface.co/datasets/pashuparthis/mimic_apple_pick_and_place),
+and fine-tuning on it took the task from 0.06 to 0.50 under a ±5 cm random spawn. The run, the
+evaluation and the published weights are in [`5_gr00t_finetune/`](../5_gr00t_finetune/).

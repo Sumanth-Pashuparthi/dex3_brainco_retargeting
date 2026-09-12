@@ -2,7 +2,7 @@
 """Apply the corrections the URDF converter output needs before it matches the baseline asset.
 
 Plain text editing of the .usda layers, so this needs no Isaac Sim and is reviewable in a diff.
-Each patch is idempotent. Rationale for all three is in docs/report.md.
+Each patch is idempotent. Rationale for all three is in assignment1_report.pdf.
 
   1. root_joint deactivated   The converter authors a PhysicsFixedJoint welding the pelvis to the
                               world even when invoked with fix_base=False, which pins pelvis z to

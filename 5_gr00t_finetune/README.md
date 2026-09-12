@@ -282,6 +282,17 @@ expert, so none of them isolates our contribution — it is the largest open que
 EVAL_XY_RANGE_M=0.05 ./run_eval.sh 40           # with the +/-5 cm jitter
 ```
 
+You do not have to train it yourself to reproduce the evaluation. Step 10000 of the `r2r3` run is
+published at
+[pashuparthis/dex3-brainco-retargeted-policy](https://huggingface.co/pashuparthis/dex3-brainco-retargeted-policy)
+— inference weights and config only, 6.5 GB — and `run_policy_server.sh` takes a directory as well
+as a step number:
+
+```bash
+hf download pashuparthis/dex3-brainco-retargeted-policy --local-dir ./policy
+./run_policy_server.sh ./policy
+```
+
 **Spawn jitter is not comparable across values.** `EVAL_XY_RANGE_M=0.0` is the stock deterministic
 spawn that steps 1 and 3 measured, and is the only setting comparable to their 0.65 and 0.06. The
 checkpoint sweep uses 0.05. Mixing them silently is the easiest way to draw a wrong conclusion from
