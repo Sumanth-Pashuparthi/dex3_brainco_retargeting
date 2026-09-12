@@ -120,7 +120,8 @@ Three infrastructure faults surfaced on the way and are now handled by the scrip
   every RTX renderer on the first GPU Vulkan enumerated; once that GPU filled up, RTX failed silently
   and the recorded camera frames were **all black** while the low-dimensional data stayed valid.
   Without `--privileged` the runtime exposes only the requested GPU, which pins the renderer too.
-  `view_demos.py` exists to catch this class of fault: look at the frames, not just the shapes.
+  The lesson generalises: check the recorded frames, not just their shapes, because a dataset of
+  black images has exactly the right dimensions and passes every structural validation.
 
 - Arena's asset library queries the Lightwheel API at import with the SDK's 10 s timeout, which that
   service regularly exceeds. `g1_apple_mimic/run_patched.py` wraps any Arena script, raising the
@@ -152,8 +153,6 @@ Three infrastructure faults surfaced on the way and are now handled by the scrip
 | `push_to_hub.sh` | Uploads the generation shards (`gen_w*.hdf5`) to Hugging Face |
 | `status.sh`, `stop.sh` | Watch and stop a running generation |
 | `dataset_stats.py` | Reports what is in an HDF5 or LeRobot dataset |
-| `view_demos.py` | Head-camera MP4 grid + contact sheet of generated demos; safe to run on live shards (copies first) |
-| `make_figure.py` | Regenerates the figure above |
 | `trim_first_step.py` | Parallel shard trim + merge used by `run_merge.sh` |
 | `g1_apple_mimic/` | The plug-in: Mimic env (with the post-reset camera refresh), subtask graph, grasp signal, Pink-Revo2 embodiment, the rollout recorder, converters, validators, `make_source_from_generated.py`, `run_patched.py` |
 
