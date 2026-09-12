@@ -53,7 +53,6 @@ Full account, including the rejected hypotheses, in [assignment1_report.pdf](../
 | `env.sh` | Paths, policy arguments and the two embodiment names. Every script sources this. |
 | `arena_run.sh` | Runs a command inside the Arena container |
 | `run_eval.sh` | The evaluation, printing success rate |
-| `record_successes.sh` | Records one labelled clip per success |
 | `compare_physics.sh` | Dumps and diffs the as-loaded physics of both robots |
 | `media/` | The verified successes, the false success, and the drift plot |
 
@@ -74,11 +73,9 @@ then 0/20 on repeat, which is why the ablation above marks short runs as indicat
 
 The task's success term is "apple within the plate region", which also counts the apple being
 *pushed* there. In one 100-episode run only 1 of 3 counted successes was a real grasp. Every number
-above was checked frame by frame at 4 fps.
-
-```bash
-./record_successes.sh 100
-```
+above was checked frame by frame at 4 fps. The clips below are the record of that check, one per
+successful episode; they are committed in `media/` rather than regenerated, since reproducing them
+means re-running the evaluation and getting a different set of successes.
 
 ![verified success](media/verified_success.png)
 
