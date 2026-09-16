@@ -17,3 +17,7 @@ lerobot/
 dataset/mimic_apple_pick_and_place/
 dataset/mimic_apple_pick_and_place
 mimic_apple_pick_and_place/
+
+# Local report tooling (not part of the published repo)
+assignment1_report.md
+make_report.py
